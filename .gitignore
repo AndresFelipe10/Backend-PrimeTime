@@ -1,0 +1,9 @@
+# backend/.gitignore
+.env
+node_modules/
+*.log
+
+# Ejecutar en la carpeta backend/:
+# npm install
+# npm run dev
+.vercel
