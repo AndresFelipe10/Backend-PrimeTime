@@ -1,66 +1,141 @@
 const express = require('express');
 const axios = require('axios');
+
 const router = express.Router();
 
 router.post('/', async (req, res) => {
-    const { materias, tareas } = req.body;
-    console.log("¡Petición recibida en /api/plan!");
+    try {
+        const { materias, tareas } = req.body;
 
-    const prompt = `
-    ### ROL
-    Actúa como un Asistente de Aprendizaje de Alto Rendimiento y Tutor Experto en áreas STEM y Humanidades. Tu objetivo es optimizar el tiempo del estudiante integrando sus clases y tareas en un plan de estudio cohesivo.
+        console.log("📩 Petición recibida en /api/plan");
 
-    ### DATOS DE ENTRADA (Contexto del Estudiante)
-    1. Horario de Clases Semanal: ${JSON.stringify(materias)}
-    2. Compromisos/Tareas Pendientes: ${JSON.stringify(tareas)}
+        console.log(
+            "Gemini API Key:",
+            process.env.GEMINI_API_KEY ? "CARGADA ✅" : "NO ENCONTRADA ❌"
+        );
 
-    ### TAREAS DEL ASISTENTE
-    1. **Sincronización:** Identifica los "huecos" o bloques libres entre las clases y después de la jornada académica.
-    2. **Priorización Inteligente:** Ubica las tareas de mayor dificultad o prioridad en los momentos de mayor frescura mental (bloques de 60-90 min).
-    3. **Enfoque Profesional:** Para cada tarea, actúa como un experto en esa materia específica (ej. Desarrollador Senior para Programación, Matemático para Cálculo). En la "actividad", no solo digas "estudiar", da una guía estratégica de resolución (ej. "Implementar patrón Repository en el Proyecto Android").
+        const prompt = `
+### ROL
+Actúa como un Asistente de Aprendizaje de Alto Rendimiento y Tutor Experto en áreas STEM y Humanidades. Tu objetivo es optimizar el tiempo del estudiante integrando sus clases y tareas en un plan de estudio cohesivo.
 
-    ### REGLAS DE FORMATO
-    - Responde ÚNICAMENTE con un JSON válido.
-    - No incluyas explicaciones de texto fuera del JSON.
-    - Usa formato de 24 horas (HH:mm).
+### DATOS DE ENTRADA
+1. Horario de Clases Semanal:
+${JSON.stringify(materias)}
 
-    ### ESTRUCTURA DE SALIDA (JSON)
+2. Compromisos/Tareas Pendientes:
+${JSON.stringify(tareas)}
+
+### TAREAS
+1. Identifica bloques libres.
+2. Prioriza tareas difíciles.
+3. Da guías profesionales concretas.
+
+### REGLAS
+- Responde ÚNICAMENTE JSON válido
+- Sin texto adicional
+- Hora formato HH:mm
+
+### ESTRUCTURA
+
+{
+  "dias":[
     {
-      "dias": [
+      "dia":"Lunes",
+      "sesiones":[
         {
-          "dia": "Lunes",
-          "sesiones": [
-            {
-              "hora": "HH:mm",
-              "materia": "Nombre de la materia",
-              "actividad": "Guía profesional concisa para resolver la tarea o reforzar el tema visto en clase",
-              "duracionMin": 60,
-              "esEstudioIndependiente": true
-            }
-          ]
+          "hora":"HH:mm",
+          "materia":"Nombre",
+          "actividad":"Descripción",
+          "duracionMin":60,
+          "esEstudioIndependiente":true
         }
       ]
     }
-    `.trim();
+  ]
+}
+`.trim();
 
-    console.log("¡Petición recibida! Intentando con Gemini Flash-8b...");
+        const url =
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const response = await axios.post(
+            url,
+            {
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text: prompt
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                timeout: 30000
+            }
+        );
 
-    try {
-        const response = await axios.post(url, {
-            contents: [{ parts: [{ text: prompt }] }]
-        });
+        console.log("📨 Respuesta recibida desde Gemini");
 
-        const text = response.data.candidates[0].content.parts[0].text;
-        const cleanJson = JSON.parse(text.replace(/```json|```/g, '').trim());
+        if (
+            !response.data.candidates ||
+            response.data.candidates.length === 0
+        ) {
+            throw new Error(
+                "Gemini no devolvió candidatos"
+            );
+        }
 
-        console.log("✅ Plan generado con éxito");
-        res.json(cleanJson);
+        const text =
+            response.data.candidates[0]
+            ?.content?.parts?.[0]?.text;
+
+        if (!text) {
+            throw new Error(
+                "Gemini devolvió texto vacío"
+            );
+        }
+
+        const cleanText = text
+            .replace(/```json/g, '')
+            .replace(/```/g, '')
+            .trim();
+
+        let resultado;
+
+        try {
+            resultado = JSON.parse(cleanText);
+        } catch (e) {
+            console.error(
+                "❌ JSON inválido recibido:",
+                cleanText
+            );
+
+            return res.status(500).json({
+                error: "Gemini devolvió JSON inválido",
+                rawResponse: cleanText
+            });
+        }
+
+        console.log("✅ Plan generado correctamente");
+
+        res.json(resultado);
 
     } catch (err) {
-        console.error('[plan] Error:', err.response?.data || err.message);
-        res.status(500).json({ error: 'Error en plan', message: err.message });
+
+        console.error(
+            "❌ ERROR GEMINI:",
+            err.response?.data || err.message
+        );
+
+        res.status(500).json({
+            error: "Error generando plan",
+            details: err.response?.data || err.message
+        });
     }
 });
 
