@@ -5,9 +5,10 @@ const router = express.Router();
 
 router.post('/', async (req, res) => {
     try {
-        const { materias, tareas } = req.body;
+        // 1. CAPTURAMOS EL USERID: Igual que en plan.js para trazabilidad
+        const { materias, tareas, userId } = req.body;
 
-        console.log("📩 Petición recibida en /api/analizar");
+        console.log(`📩 Petición de Análisis recibida para el Usuario ID: ${userId || 'No proporcionado'}`);
 
         console.log(
             "Gemini API Key cargada:",
@@ -15,7 +16,7 @@ router.post('/', async (req, res) => {
         );
 
         const prompt = `
-Analiza la carga académica y responde ÚNICAMENTE con este JSON:
+Analiza la carga académica y responde usando el esquema JSON provisto.
 
 {
   "nivelCarga":"Alta/Media/Baja",
@@ -30,8 +31,7 @@ Materias: ${JSON.stringify(materias)}
 Tareas: ${JSON.stringify(tareas)}
 `;
 
-        const url =
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
         const response = await axios.post(
             url,
@@ -44,7 +44,11 @@ Tareas: ${JSON.stringify(tareas)}
                             }
                         ]
                     }
-                ]
+                ],
+                // 2. CONFIGURACIÓN NATIVA: Forzamos el formato JSON limpio directamente
+                generationConfig: {
+                    responseMimeType: "application/json"
+                }
             },
             {
                 headers: {
@@ -60,41 +64,28 @@ Tareas: ${JSON.stringify(tareas)}
             !response.data.candidates ||
             !response.data.candidates.length
         ) {
-            throw new Error(
-                'Gemini no devolvió candidatos'
-            );
+            throw new Error('Gemini no devolvió candidatos');
         }
 
-        const text =
-            response.data.candidates[0]
-            ?.content?.parts?.[0]?.text;
+        const text = response.data.candidates[0]?.content?.parts?.[0]?.text;
 
         if (!text) {
-            throw new Error(
-                'Gemini devolvió respuesta vacía'
-            );
+            throw new Error('Gemini devolvió respuesta vacía');
         }
 
-        const cleanText = text
-            .replace(/```json/g, '')
-            .replace(/```/g, '')
-            .trim();
-
         let resultado;
-
         try {
-            resultado = JSON.parse(cleanText);
+            // Ya viene sin los bloques de código Markdown ```json
+            resultado = JSON.parse(text);
         } catch {
-            console.error("JSON inválido:", cleanText);
-
+            console.error("JSON inválido:", text);
             return res.status(500).json({
                 error: "Gemini devolvió un formato inválido",
-                contenido: cleanText
+                contenido: text
             });
         }
 
-        console.log("✅ Análisis completado");
-
+        console.log(`✅ Análisis completado para el usuario ${userId}`);
         res.json(resultado);
 
     } catch (err) {
