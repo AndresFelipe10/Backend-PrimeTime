@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.post('/', async (req, res) => {
     try {
-        // 1. CAPTURAMOS EL USERID: Ahora el backend sabe exactamente de quién es la petición
+        // 1. CAPTURAMOS EL USERID
         const { materias, tareas, userId } = req.body;
 
         console.log(`📩 Petición de IA recibida para el Usuario ID: ${userId || 'No proporcionado'}`);
@@ -54,40 +54,43 @@ ${JSON.stringify(tareas)}
 }
 `.trim();
 
-        // URL de la API de Gemini
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        // Usamos gemini-1.5-flash (Más ligero, rápido y estable para producción)
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
 
-        const response = await axios.post(
-            url,
-            {
-                contents: [
-                    {
-                        parts: [
-                            {
-                                text: prompt
-                            }
-                        ]
-                    }
-                ],
-                // 2. CONFIGURACIÓN NATIVA: Forzamos a Gemini a responder en formato JSON puro
-                generationConfig: {
-                    responseMimeType: "application/json"
+        const requestBody = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" }
+        };
+
+        const requestConfig = {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 30000
+        };
+
+        let response;
+        let intentos = 3;
+        let espera = 1000; // 1 segundo inicial
+
+        // Bucle de reintentos en caso de saturación (503 o 429)
+        for (let i = 0; i < intentos; i++) {
+            try {
+                response = await axios.post(url, requestBody, requestConfig);
+                break; // Si es exitoso, rompe el bucle
+            } catch (error) {
+                const status = error.response?.status;
+                if ((status === 503 || status === 429) && i < intentos - 1) {
+                    console.warn(`⚠️ Gemini saturado (Status: ${status}). Reintentando en ${espera}ms... (Intento ${i + 1}/${intentos})`);
+                    await new Promise(res => setTimeout(res, espera));
+                    espera *= 2; // Duplica el tiempo de espera (Backoff)
+                } else {
+                    throw error; // Lanza el error al catch principal
                 }
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                timeout: 30000
             }
-        );
+        }
 
         console.log("📨 Respuesta recibida desde Gemini");
 
-        if (
-            !response.data.candidates ||
-            response.data.candidates.length === 0
-        ) {
+        if (!response.data.candidates || response.data.candidates.length === 0) {
             throw new Error("Gemini no devolvió candidatos");
         }
 
@@ -99,12 +102,12 @@ ${JSON.stringify(tareas)}
 
         let resultado;
         try {
-            // Al usar responseMimeType, text ya viene como un JSON string limpio sin ```json
             resultado = JSON.parse(text);
         } catch (e) {
             console.error("❌ JSON inválido recibido:", text);
             return res.status(500).json({
-                error: "Gemini devolvió un formato inválido",
+                success: false,
+                message: "La Inteligencia Artificial devolvió un formato que no se pudo procesar.",
                 rawResponse: text
             });
         }
@@ -113,13 +116,22 @@ ${JSON.stringify(tareas)}
         res.json(resultado);
 
     } catch (err) {
-        console.error(
-            "❌ ERROR GEMINI:",
-            err.response?.data || err.message
-        );
+        console.error("❌ ERROR GEMINI:", err.response?.data || err.message);
 
+        const status = err.response?.status;
+
+        // Si el error es 503 después de todos los reintentos
+        if (status === 503 || (err.message && err.message.includes('503'))) {
+            return res.status(503).json({
+                success: false,
+                message: "Los servidores de IA están experimentando una demanda altísima en este momento. Por favor, intenta generar tu plan en un par de minutos."
+            });
+        }
+
+        // Para cualquier otro tipo de error
         res.status(500).json({
-            error: "Error generando plan",
+            success: false,
+            message: "Ocurrió un error inesperado al conectar con el motor de Inteligencia Artificial.",
             details: err.response?.data || err.message
         });
     }
