@@ -11,8 +11,8 @@ router.post('/', async (req, res) => {
         console.log(`📩 Petición de IA recibida para el Usuario ID: ${userId || 'No proporcionado'}`);
 
         console.log(
-            "Gemini API Key:",
-            process.env.GEMINI_API_KEY ? "CARGADA ✅" : "NO ENCONTRADA ❌"
+            'Gemini API Key:',
+            process.env.GEMINI_API_KEY ? 'CARGADA ✅' : 'NO ENCONTRADA ❌'
         );
 
         const prompt = `
@@ -59,7 +59,7 @@ ${JSON.stringify(tareas)}
         
         const requestBody = {
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" }
+            generationConfig: { responseMimeType: 'application/json' }
         };
 
         const requestConfig = {
@@ -88,26 +88,26 @@ ${JSON.stringify(tareas)}
             }
         }
 
-        console.log("📨 Respuesta recibida desde Gemini");
+        console.log('📨 Respuesta recibida desde Gemini');
 
         if (!response.data.candidates || response.data.candidates.length === 0) {
-            throw new Error("Gemini no devolvió candidatos");
+            throw new Error('Gemini no devolvió candidatos');
         }
 
         const text = response.data.candidates[0]?.content?.parts?.[0]?.text;
 
         if (!text) {
-            throw new Error("Gemini devolvió texto vacío");
+            throw new Error('Gemini devolvió texto vacío');
         }
 
         let resultado;
         try {
             resultado = JSON.parse(text);
-        } catch (e) {
-            console.error("❌ JSON inválido recibido:", text);
+        } catch {
+            console.error('❌ JSON inválido recibido:', text);
             return res.status(500).json({
                 success: false,
-                message: "La Inteligencia Artificial devolvió un formato que no se pudo procesar.",
+                message: 'La Inteligencia Artificial devolvió un formato que no se pudo procesar.',
                 rawResponse: text
             });
         }
@@ -116,7 +116,7 @@ ${JSON.stringify(tareas)}
         res.json(resultado);
 
     } catch (err) {
-        console.error("❌ ERROR GEMINI:", err.response?.data || err.message);
+        console.error('❌ ERROR GEMINI:', err.response?.data || err.message);
 
         const status = err.response?.status;
 
@@ -124,14 +124,14 @@ ${JSON.stringify(tareas)}
         if (status === 503 || (err.message && err.message.includes('503'))) {
             return res.status(503).json({
                 success: false,
-                message: "Los servidores de IA están experimentando una demanda altísima en este momento. Por favor, intenta generar tu plan en un par de minutos."
+                message: 'Los servidores de IA están experimentando una demanda altísima en este momento. Por favor, intenta generar tu plan en un par de minutos.'
             });
         }
 
         // Para cualquier otro tipo de error
         res.status(500).json({
             success: false,
-            message: "Ocurrió un error inesperado al conectar con el motor de Inteligencia Artificial.",
+            message: 'Ocurrió un error inesperado al conectar con el motor de Inteligencia Artificial.',
             details: err.response?.data || err.message
         });
     }

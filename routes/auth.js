@@ -87,7 +87,7 @@ router.post('/register', (req, res) => {
 // ENDPOINT: GET USERS (Admin)
 router.get('/users', (req, res) => {
     const usuarios = getUsuarios();
-    const listaPublica = usuarios.map(({ password, ...user }) => user);
+    const listaPublica = usuarios.map(({ password: _password, ...user }) => user);
     res.json(listaPublica);
 });
 

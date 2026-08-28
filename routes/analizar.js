@@ -10,8 +10,8 @@ router.post('/', async (req, res) => {
         console.log(`📩 Petición de Análisis recibida para el Usuario ID: ${userId || 'No proporcionado'}`);
 
         console.log(
-            "Gemini API Key cargada:",
-            process.env.GEMINI_API_KEY ? "SÍ" : "NO"
+            'Gemini API Key cargada:',
+            process.env.GEMINI_API_KEY ? 'SÍ' : 'NO'
         );
 
         const prompt = `
@@ -34,7 +34,7 @@ Tareas: ${JSON.stringify(tareas)}
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
         const requestBody = {
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" }
+            generationConfig: { responseMimeType: 'application/json' }
         };
 
         const requestConfig = {
@@ -63,7 +63,7 @@ Tareas: ${JSON.stringify(tareas)}
             }
         }
 
-        console.log("Respuesta Gemini recibida");
+        console.log('Respuesta Gemini recibida');
 
         if (!response.data.candidates || !response.data.candidates.length) {
             throw new Error('Gemini no devolvió candidatos');
@@ -79,10 +79,10 @@ Tareas: ${JSON.stringify(tareas)}
         try {
             resultado = JSON.parse(text);
         } catch {
-            console.error("JSON inválido:", text);
+            console.error('JSON inválido:', text);
             return res.status(500).json({
                 success: false,
-                message: "Formato de análisis no válido desde la IA.",
+                message: 'Formato de análisis no válido desde la IA.',
                 contenido: text
             });
         }
@@ -98,13 +98,13 @@ Tareas: ${JSON.stringify(tareas)}
         if (status === 503 || (err.message && err.message.includes('503'))) {
             return res.status(503).json({
                 success: false,
-                message: "La IA de análisis está saturada temporalmente. Por favor, intenta de nuevo en unos momentos."
+                message: 'La IA de análisis está saturada temporalmente. Por favor, intenta de nuevo en unos momentos.'
             });
         }
 
         res.status(500).json({
             success: false,
-            message: "Error de servidor al intentar analizar la carga académica.",
+            message: 'Error de servidor al intentar analizar la carga académica.',
             details: err.response?.data || err.message
         });
     }
