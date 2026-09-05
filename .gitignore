@@ -2,9 +2,8 @@
 .env
 node_modules/
 *.log
-
+coverage/
 # Ejecutar en la carpeta backend/:
 # npm install
 # npm run dev
 .vercel
-#

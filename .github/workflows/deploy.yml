@@ -10,19 +10,12 @@ jobs:
 
     steps:
       - name: Checkout del código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Verificar versiones
-        run: |
-          node --version
-          npm --version
+      - name: Instalar Railway CLI
+        run: npm install -g @railway/cli
 
       - name: Desplegar en Railway
-        run: npx @railway/cli up --detach
+        run: railway up --ci
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
