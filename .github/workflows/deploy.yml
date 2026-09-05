@@ -6,17 +6,23 @@ on:
 
 jobs:
   deploy:
-    
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Instalar Railway CLI
-        run: npm install -g @railway/cli
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verificar versiones
+        run: |
+          node --version
+          npm --version
 
       - name: Desplegar en Railway
-        run: railway up --detach
+        run: npx @railway/cli up --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
