@@ -15,7 +15,10 @@ jobs:
       - name: Instalar Railway CLI
         run: npm install -g @railway/cli
 
+      - name: Verificar versión de Railway CLI
+        run: railway --version
+
       - name: Desplegar en Railway
-        run: railway up --ci
+        run: railway up --ci --verbose
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
