@@ -19,6 +19,6 @@ jobs:
         run: railway --version
 
       - name: Desplegar en Railway
-        run: railway up --ci --verbose
+        run: railway up --service Backend-PrimeTime --ci --verbose
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
